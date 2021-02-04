@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+        csci2020u:
+                build: /home/shadowrylander
+                # volumes:
+                #         - type: bind
+                #           source: /home/shadowrylander/.ssh
+                #           target: /root/.ssh
+secrets:
+        host_ssh_key:
+                file: ~/.ssh/id_ed25519
