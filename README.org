@@ -1,7 +1,7 @@
 #+property: header-args -n -r -l "[{(<%s>)}]" :tangle-mode (identity #0444) :noweb yes
 * CSCI2020U
 
-These are the labs for my =Software Systems Developement and Integration= course I'm taking at the =Ontario Tech University=.
+These are the labs for the =Software Systems Developement and Integration= course I'm taking at the =Ontario Tech University=.
 
 ** Docker
 
