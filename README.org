@@ -42,7 +42,7 @@ I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][xonsh]] 
 CMD [ "/usr/bin/env", "xonsh" ]
 #+end_src
 
-*** Nix Packages
+**** Nix Packages
 
 These are the packages I will be using for the course:
 
@@ -57,7 +57,7 @@ RUN nix-channel --update && nix-env -iA \
 	nixpkgs.byobu
 #+end_src
 
-*** Git Clone This Repo
+**** Git Clone This Repo
 
 Basically, I want to work in this container only; this includes manipulating the git repo here as well, such that the only time I'd need to pull the origin to the cloned repo on the host machine is when I update the =Dockerfile= and =docker-compose.yml=.
 
@@ -74,7 +74,7 @@ ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.jso
 RUN git clone -b $branch https://github.com/$user/$frepo.git /root/$repo
 #+end_src
 
-*** Putting It Together
+**** Putting It All Together
 
 #+begin_src docker :tangle Dockerfile
 <<nix>>
@@ -89,7 +89,7 @@ ENV PATH="/root/.nix-profile/bin/:${PATH}"
 <<git>>
 #+end_src
 
-** =docker-compose.yml=
+*** =docker-compose.yml=
 
 The compose file is simple enough, with the secrets bit from [[https://forums.docker.com/t/unable-set-docker-secret-file-ownership-permissions/31336][Unable set docker secret file ownership, permissions]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
 
