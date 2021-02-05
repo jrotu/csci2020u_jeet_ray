@@ -15,7 +15,6 @@ So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/
 
 #+name: multistage
 #+begin_src docker
-
 FROM bitnami/minideb AS nix
 RUN apt update && apt install -y --no-install-recommends curl xz-utils && rm -rf /var/lib/apt/lists/*
 
@@ -25,16 +24,13 @@ RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && cu
 
 # As this is a new stage, it remains unaffected by the Nix update above, unlike using a RUN task immediately after
 # FROM nix
-
 #+end_src
 
 **** Nix Base
 
 #+name: nix
 #+begin_src docker
-
 FROM nixos/nix
-
 #+end_src
 
 **** Shell
@@ -43,9 +39,7 @@ I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][xonsh]] 
 
 #+name: shell
 #+begin_src docker
-
 CMD [ "/usr/bin/env", "xonsh" ]
-
 #+end_src
 
 *** Nix Packages
@@ -54,7 +48,6 @@ These are the packages I will be using for the course:
 
 #+name: packages
 #+begin_src docker
-
 RUN nix-channel --update && nix-env -iA \
         nixpkgs.xonsh \
 	nixpkgs.gradle \
@@ -62,7 +55,6 @@ RUN nix-channel --update && nix-env -iA \
 	nixpkgs.emacs \
 	nixpkgs.tmux \
 	nixpkgs.byobu
-
 #+end_src
 
 *** Git Clone This Repo
@@ -73,7 +65,6 @@ The following is adapted from [[https://stackoverflow.com/a/39278224][How to pre
 
 #+name: git
 #+begin_src docker
-
 ARG user="jrotu"
 ARG repo="csci2020u"
 ARG frepo="${repo}_jeet_ray"
@@ -81,13 +72,11 @@ ARG branch="master"
 
 ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.json
 RUN git clone -b $branch https://github.com/$user/$frepo.git /root/$repo
-
 #+end_src
 
 *** Putting It Together
 
 #+begin_src docker :tangle Dockerfile
-
 <<nix>>
 <<shell>>
 WORKDIR /root
@@ -98,7 +87,6 @@ ENV PATH="/root/.nix-profile/bin/:${PATH}"
 <<packages>>
 
 <<git>>
-
 #+end_src
 
 ** =docker-compose.yml=
@@ -106,7 +94,6 @@ ENV PATH="/root/.nix-profile/bin/:${PATH}"
 The compose file is simple enough, with the secrets bit from [[https://forums.docker.com/t/unable-set-docker-secret-file-ownership-permissions/31336][Unable set docker secret file ownership, permissions]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
 
 #+begin_src yaml :tangle docker-compose.yml
-
 version: "3.9"
 services:
 	csci2020u:
@@ -120,5 +107,4 @@ services:
 secrets:
 	host_ssh_key:
 		file: ~/.ssh/id_ed25519
-
 #+end_src
