@@ -16,14 +16,13 @@ So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/
 #+name: multistage
 #+begin_src docker
 FROM bitnami/minideb AS nix
-RUN apt update && apt install -y --no-install-recommends curl xz-utils && rm -rf /var/lib/apt/lists/*
+RUN apt update && apt install -y --no-install-recommends xz-utils && rm -rf /var/lib/apt/lists/*
 
-# Allows me to update the Nix package manager on every build
-ARG recache=0
-RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && curl -L https://nixos.org/nix/install | sh
+COPY --from=curl nix.sh nix.sh
+RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && sh nix.sh
 
 # As this is a new stage, it remains unaffected by the Nix update above, unlike using a RUN task immediately after
-# FROM nix
+FROM nix
 #+end_src
 
 **** Nix Base
@@ -31,6 +30,21 @@ RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && cu
 #+name: nix
 #+begin_src docker
 FROM nixos/nix
+COPY --from=curl proguard.tar.gz proguard.tar.gz
+#+end_src
+
+**** Curl Proguard
+
+Regardless of whether I use a =multistage= build or not, I am still going to attempt to save space by using the official [[https://hub.docker.com/r/curlimages/curl][curlimages/curl]] image:
+
+#+name: curl
+#+begin_src docker
+FROM curlimages/curl as curl
+RUN curl https://downloads.sourceforge.net/project/proguard/proguard/6.2/proguard6.2.2.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fproguard%2Ffiles%2Fproguard%2F6.2%2Fproguard6.2.2.tar.gz%2Fdownload&ts=1612552470 > proguard.tar.gz
+
+# Allows me to update the Nix package manager on every build
+ARG recache=0
+RUN curl https://nixos.org/nix/install > nix.sh
 #+end_src
 
 **** Shell
@@ -44,18 +58,19 @@ CMD [ "/usr/bin/env", "xonsh" ]
 
 **** Nix Packages
 
-These are the packages I will be using for the course:
+These are the packages I will be using for the course; they are split into different layers simply to take advantage of caching, where the layers shared between docker images are not rebuilt unless necessary.
 
 #+name: packages
 #+begin_src docker
-RUN nix-channel --update && nix-env -iA \
-        nixpkgs.xonsh \
-	nixpkgs.gradle \
-	nixpkgs.emacs \
-	nixpkgs.tmux \
-	nixpkgs.byobu \
-	nixpkgs.rsync \
-	nixpkgs.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
+ARG n="nixpkgs"
+ARG install="nix-env -iA ${n}"
+RUN nix-channel --update
+RUN $install.xonsh
+RUN $install.emacs && [install doomemacs]
+RUN $install.tmux $n.byobu
+RUN $install.rsync
+RUN $install.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
+RUN $install.gradle $n.tar && tar -xf proguard.tar.gz
 #+end_src
 
 **** Git Clone This Repo
@@ -78,6 +93,7 @@ RUN git clone -b $branch git@github.com:$user/$frepo.git /root/$repo
 **** Putting It All Together
 
 #+begin_src docker :tangle Dockerfile
+<<curl>>
 <<nix>>
 <<shell>>
 WORKDIR /root
