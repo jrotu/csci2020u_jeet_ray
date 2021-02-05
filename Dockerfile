@@ -22,4 +22,4 @@ ARG frepo="${repo}_jeet_ray"
 ARG branch="master"
 
 ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.json
-RUN git clone -b $branch https://github.com/$user/$frepo.git /root/$repo
+RUN git clone -b $branch git@github.com:$user/$frepo.git /root/$repo
