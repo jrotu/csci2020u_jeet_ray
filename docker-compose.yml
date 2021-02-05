@@ -1,11 +1,20 @@
 version: "3.9"
 services:
         csci2020u:
-                build: /home/shadowrylander
+                build: .
                 # volumes:
                 #         - type: bind
                 #           source: /home/shadowrylander/.ssh
                 #           target: /root/.ssh
+
+                # From: https://forums.docker.com/t/unable-set-docker-secret-file-ownership-permissions/31336/2
+                secrets:
+                        - source: host_ssh_key
+                          target: /root/.ssh/id_ed25519
+                          uid: "0"
+                          gid: "0"
+                          mode: "0600"
+
 secrets:
         host_ssh_key:
                 file: ~/.ssh/id_ed25519
