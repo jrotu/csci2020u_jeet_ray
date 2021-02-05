@@ -51,10 +51,11 @@ These are the packages I will be using for the course:
 RUN nix-channel --update && nix-env -iA \
         nixpkgs.xonsh \
 	nixpkgs.gradle \
-	nixpkgs.git \
 	nixpkgs.emacs \
 	nixpkgs.tmux \
-	nixpkgs.byobu
+	nixpkgs.byobu \
+	nixpkgs.rsync \
+	nixpkgs.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
 #+end_src
 
 **** Git Clone This Repo

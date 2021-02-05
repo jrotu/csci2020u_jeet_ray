@@ -8,10 +8,11 @@ ENV PATH="/root/.nix-profile/bin/:${PATH}"
 RUN nix-channel --update && nix-env -iA \
 	nixpkgs.xonsh \
 	nixpkgs.gradle \
-	nixpkgs.git \
 	nixpkgs.emacs \
 	nixpkgs.tmux \
-	nixpkgs.byobu
+	nixpkgs.byobu \
+	nixpkgs.rsync \
+	nixpkgs.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
 
 # Answer: https://stackoverflow.com/a/39278224
 # User: https://stackoverflow.com/users/243335/anq
