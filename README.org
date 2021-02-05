@@ -1,0 +1,124 @@
+#+property: header-args -n -r -l "[{(<%s>)}]" :tangle-mode (identity #0444) :noweb yes
+* CSCI2020U
+
+These are the labs for my =Software Systems Developement and Integration= course I taking at the =Ontario Tech University=.
+
+** Docker
+
+This is the =Dockerfile= and =docker-compose.yml= I'm using.
+
+*** =Dockerfile=
+
+So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/bitnami/minideb][=bitnami/minideb=]] and just using the base [[https://hub.docker.com/r/nixos/nix/][=nixos/nix=]] image, which is based off of [[https://hub.docker.com/_/alpine][=Dockerhub's alpine=]] image.
+
+**** Multistage
+
+#+name: multistage
+#+begin_src docker
+
+FROM bitnami/minideb AS nix
+RUN apt update && apt install -y --no-install-recommends curl xz-utils && rm -rf /var/lib/apt/lists/*
+
+# Allows me to update the Nix package manager on every build
+ARG recache=0
+RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && curl -L https://nixos.org/nix/install | sh
+
+# As this is a new stage, it remains unaffected by the Nix update above, unlike using a RUN task immediately after
+# FROM nix
+
+#+end_src
+
+**** Nix Base
+
+#+name: nix
+#+begin_src docker
+
+FROM nixos/nix
+
+#+end_src
+
+**** Shell
+
+I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][=xonsh=]] shell; this is the =CMD= of the =Dockerfile= (I'm not using =ENTRYPOINT= as =CMD= is overridable from the commandline, and that could prove useful if necessary).
+
+#+name: shell
+#+begin_src docker
+
+CMD [ "/usr/bin/env", "xonsh" ]
+
+#+end_src
+
+*** Nix Packages
+
+These are the packages I will be using for the course:
+
+#+name: packages
+#+begin_src docker
+
+RUN nix-channel --update && nix-env -iA \
+        nixpkgs.xonsh \
+	nixpkgs.gradle \
+	nixpkgs.git \
+	nixpkgs.emacs \
+	nixpkgs.tmux \
+	nixpkgs.byobu
+
+#+end_src
+
+*** Git Clone This Repo
+
+Basically, I want to work in this container only; this includes manipulating the git repo here as well, such that the only time I'd need to pull the origin to the cloned repo on the host machine is when I update the =Dockerfile= and =docker-compose.yml=.
+
+The following is adapted from [[https://stackoverflow.com/a/39278224][How to prevent Dockerfile caching git clone]], by [[https://stackoverflow.com/users/243335/anq][anq]]:
+
+#+name: git
+#+begin_src docker
+
+ARG user="jrotu"
+ARG repo="csci2020u"
+ARG frepo="${repo}_jeet_ray"
+ARG branch="master"
+
+ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.json
+RUN git clone -b $branch https://github.com/$user/$frepo.git /root/$repo
+
+#+end_src
+
+*** Putting It Together
+
+#+begin_src docker :tangle Dockerfile
+
+<<nix>>
+<<shell>>
+WORKDIR /root
+
+# Unnecessary when using the nixos/nix image, but isn't much of a hinderance
+ENV PATH="/root/.nix-profile/bin/:${PATH}"
+
+<<packages>>
+
+<<git>>
+
+#+end_src
+
+** =docker-compose.yml=
+
+The compose file is simple enough, with the secrets bit from [[][]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
+
+#+begin_src yaml :tangle docker-compose.yml
+
+version: "3.9"
+services:
+	csci2020u:
+		build: .
+		secrets:
+			- source: host_ssh_key
+			  target: /root/.ssh/id_ed25519
+			  uid: "0"
+			  gid: "0"
+			  mode: "0600"
+secrets:
+	host_ssh_key:
+		file: ~/.ssh/id_ed25519
+
+#+end_src

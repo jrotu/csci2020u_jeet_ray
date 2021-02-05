@@ -1,16 +1,10 @@
-# FROM bitnami/minideb AS nix
-# RUN apt update && apt install -y curl xz-utils
-
-# Allows me to update the Nix package manager on every build
-# ARG recache=0
-# RUN mkdir /nix /etc/nix && echo "build-users-group =" > /etc/nix/nix.conf && curl -L https://nixos.org/nix/install | sh 
-
-# As this is a new stage, this remains unaffected by the update above, unlike using a RUN task immediately after
-# FROM nix
 FROM nixos/nix
 CMD [ "/usr/bin/env", "xonsh" ]
 WORKDIR /root
-# ENV PATH="/root/.nix-profile/bin/:${PATH}"
+
+# Unnecessary when using the nixos/nix image, but isn't much of a hinderance
+ENV PATH="/root/.nix-profile/bin/:${PATH}"
+
 RUN nix-channel --update && nix-env -iA \
 	nixpkgs.xonsh \
 	nixpkgs.gradle \
