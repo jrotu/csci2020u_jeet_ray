@@ -8,7 +8,7 @@ services:
                           target: /root/.ssh/id_ed25519
                           uid: "0"
                           gid: "0"
-                          mode: "0600"
+                          mode: 0600
 
 secrets:
         host_ssh_key:
