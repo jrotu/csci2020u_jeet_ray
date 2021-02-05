@@ -9,7 +9,7 @@ This is the =Dockerfile= and =docker-compose.yml= I'm using.
 
 *** =Dockerfile=
 
-So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/bitnami/minideb][=bitnami/minideb=]] and just using the base [[https://hub.docker.com/r/nixos/nix/][=nixos/nix=]] image, which is based off of [[https://hub.docker.com/_/alpine][=Dockerhub's alpine=]] image.
+So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/bitnami/minideb][bitnami/minideb]] and just using the base [[https://hub.docker.com/r/nixos/nix/][nixos/nix]] image, which is based off of [[https://hub.docker.com/_/alpine][Dockerhub's alpine]] image.
 
 **** Multistage
 
@@ -39,7 +39,7 @@ FROM nixos/nix
 
 **** Shell
 
-I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][=xonsh=]] shell; this is the =CMD= of the =Dockerfile= (I'm not using =ENTRYPOINT= as =CMD= is overridable from the commandline, and that could prove useful if necessary).
+I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][xonsh]] shell; this is the =CMD= of the =Dockerfile= (I'm not using =ENTRYPOINT= as =CMD= is overridable from the commandline, and that could prove useful if necessary).
 
 #+name: shell
 #+begin_src docker
@@ -103,7 +103,7 @@ ENV PATH="/root/.nix-profile/bin/:${PATH}"
 
 ** =docker-compose.yml=
 
-The compose file is simple enough, with the secrets bit from [[][]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
+The compose file is simple enough, with the secrets bit from [[https://forums.docker.com/t/unable-set-docker-secret-file-ownership-permissions/31336][Unable set docker secret file ownership, permissions]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
 
 #+begin_src yaml :tangle docker-compose.yml
 
