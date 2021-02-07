@@ -5,21 +5,35 @@ These are the labs for the =Software Systems Developement and Integration= cours
 
 ** Docker
 
-This is the =Dockerfile= and =docker-compose.yml= I'm using.
+This is a literate program of the =Dockerfile= and =docker-compose.yml= I'm using.
 
 *** =Dockerfile=
 
 I chose to go with a =multistage= build of [[https://hub.docker.com/_/alpine][Dockerhub's alpine]] images combined with [[https://hub.docker.com/r/nixos/nix/][nixos/nix]], which is based off the former.
 
+#+name: emacsConfigs
+#+begin_src text
+shadowrylander/.home/.emacs-configs
+#+end_src
+
+#+name: doomd
+#+begin_src text
+<<emacsConfigs>>/.doom.d
+#+end_src
+
 **** Alpine
 
-I'm going to use this for preprocessing, such as downloading and unpacking tarballs, easily narrow-cloning git repos, etc.
+I'm going to use this for preprocessing, such as downloading and unpacking tarballs, easily narrow-cloning git repos, etc. ; as this is a previous stage, I won't care much about the addition of unnecessary layers.
 
 #+name: pre
 #+begin_src dockerfile
 FROM alpine AS pre
-RUN apk add git
-RUN git clone https://github.com/shadowrylander/shadowrylander.git && git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d
+RUN apk add git sd
+RUN git clone https://github.com/shadowrylander/shadowrylander.git
+RUN git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d
+RUN sd ../packages packages <<emacsConfigs>>/config.el
+RUN sd ../global/config.el global/config.el <<doomd>>/config.el
+RUN sd ../global/init.el global/init.el <<doomd>>/init.el
 #+end_src
 
 **** Nix Base
@@ -30,7 +44,8 @@ This is the primary image; the working directory is the =root= account's home di
 #+begin_src dockerfile
 FROM nixos/nix
 WORKDIR /root
-COPY --from=pre shadowrylander/.home/.emacs-configs/.doom.d .doom.d
+COPY --from=pre <<doomd>> .doom.d
+COPY --from=pre <<emacsConfigs>>/global global
 COPY --from=pre .emacs.d .emacs.d
 #+end_src
 
