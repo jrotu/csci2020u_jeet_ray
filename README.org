@@ -1,4 +1,4 @@
-#+property: header-args -n -r -l "[{(<%s>)}]" :tangle-mode (identity #0444) :noweb yes
+#+property: header-args -n -r -l "[{(<%s>)}]" :tangle-mode (identity 0444) :noweb yes
 * CSCI2020U
 
 These are the labs for the =Software Systems Developement and Integration= course I'm taking at the =Ontario Tech University=.
@@ -9,42 +9,29 @@ This is the =Dockerfile= and =docker-compose.yml= I'm using.
 
 *** =Dockerfile=
 
-So I'm still choosing between =multistage= builds of [[https://hub.docker.com/r/bitnami/minideb][bitnami/minideb]] and just using the base [[https://hub.docker.com/r/nixos/nix/][nixos/nix]] image, which is based off of [[https://hub.docker.com/_/alpine][Dockerhub's alpine]] image.
+I chose to go with a =multistage= build of [[https://hub.docker.com/_/alpine][Dockerhub's alpine]] images combined with [[https://hub.docker.com/r/nixos/nix/][nixos/nix]], which is based off the former.
 
-**** Multistage
+**** Alpine
 
-#+name: multistage
-#+begin_src docker
-FROM bitnami/minideb AS nix
-RUN apt update && apt install -y --no-install-recommends xz-utils && rm -rf /var/lib/apt/lists/*
+I'm going to use this for preprocessing, such as downloading and unpacking tarballs, easily narrow-cloning git repos, etc.
 
-COPY --from=curl nix.sh nix.sh
-RUN mkdir /nix /etc/nix && echo "build-users-group =" >> /etc/nix/nix.conf && sh nix.sh
-
-# As this is a new stage, it remains unaffected by the Nix update above, unlike using a RUN task immediately after
-FROM nix
+#+name: pre
+#+begin_src dockerfile
+FROM alpine AS pre
+RUN apk add git
+RUN git clone https://github.com/shadowrylander/shadowrylander.git && git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d
 #+end_src
 
 **** Nix Base
 
+This is the primary image; the working directory is the =root= account's home directory, and I'm copying over my personal [[https://github.com/hlissner/doom-emacs][doom emacs]] configs:
+
 #+name: nix
-#+begin_src docker
+#+begin_src dockerfile
 FROM nixos/nix
-COPY --from=curl proguard.tar.gz proguard.tar.gz
-#+end_src
-
-**** Curl Proguard
-
-Regardless of whether I use a =multistage= build or not, I am still going to attempt to save space by using the official [[https://hub.docker.com/r/curlimages/curl][curlimages/curl]] image:
-
-#+name: curl
-#+begin_src docker
-FROM curlimages/curl as curl
-RUN curl https://downloads.sourceforge.net/project/proguard/proguard/6.2/proguard6.2.2.tar.gz?r=https%3A%2F%2Fsourceforge.net%2Fprojects%2Fproguard%2Ffiles%2Fproguard%2F6.2%2Fproguard6.2.2.tar.gz%2Fdownload&ts=1612552470 > proguard.tar.gz
-
-# Allows me to update the Nix package manager on every build
-ARG recache=0
-RUN curl https://nixos.org/nix/install > nix.sh
+WORKDIR /root
+COPY --from=pre shadowrylander/.home/.emacs-configs/.doom.d .doom.d
+COPY --from=pre .emacs.d .emacs.d
 #+end_src
 
 **** Shell
@@ -52,7 +39,7 @@ RUN curl https://nixos.org/nix/install > nix.sh
 I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][xonsh]] shell; this is the =CMD= of the =Dockerfile= (I'm not using =ENTRYPOINT= as =CMD= is overridable from the commandline, and that could prove useful if necessary).
 
 #+name: shell
-#+begin_src docker
+#+begin_src dockerfile
 CMD [ "/usr/bin/env", "xonsh" ]
 #+end_src
 
@@ -61,16 +48,16 @@ CMD [ "/usr/bin/env", "xonsh" ]
 These are the packages I will be using for the course; they are split into different layers simply to take advantage of caching, where the layers shared between docker images are not rebuilt unless necessary.
 
 #+name: packages
-#+begin_src docker
+#+begin_src dockerfile
 ARG n="nixpkgs"
 ARG install="nix-env -iA ${n}"
 RUN nix-channel --update
 RUN $install.xonsh
-RUN $install.emacs && [install doomemacs]
-RUN $install.tmux $n.byobu
 RUN $install.rsync
 RUN $install.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
-RUN $install.gradle $n.tar && tar -xf proguard.tar.gz
+RUN $install.emacs-nox && .emacs.d/bin/doom sync
+RUN $install.tmux $n.byobu
+RUN $install.gradle
 #+end_src
 
 **** Git Clone This Repo
@@ -80,26 +67,24 @@ Basically, I want to work in this container only; this includes manipulating the
 The following is adapted from [[https://stackoverflow.com/a/39278224][How to prevent Dockerfile caching git clone]], by [[https://stackoverflow.com/users/243335/anq][anq]]:
 
 #+name: git
-#+begin_src docker
+#+begin_src dockerfile
 ARG user="jrotu"
 ARG repo="csci2020u"
 ARG frepo="${repo}_jeet_ray"
 ARG branch="master"
 
 ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.json
-RUN git clone -b $branch git@github.com:$user/$frepo.git /root/$repo
+RUN git clone -b $branch git@github.com:$user/$frepo.git $repo
 #+end_src
 
 **** Putting It All Together
 
-#+begin_src docker :tangle Dockerfile
-<<curl>>
-<<nix>>
-<<shell>>
-WORKDIR /root
+#+begin_src dockerfile :tangle Dockerfile
+<<pre>>
 
-# Unnecessary when using the nixos/nix image, but isn't much of a hinderance
-ENV PATH="/root/.nix-profile/bin/:${PATH}"
+<<nix>>
+
+<<shell>>
 
 <<packages>>
 
@@ -113,15 +98,15 @@ The compose file is simple enough, with the secrets bit from [[https://forums.do
 #+begin_src yaml :tangle docker-compose.yml
 version: "3.9"
 services:
-	csci2020u:
-		build: .
-		secrets:
-			- source: host_ssh_key
-			  target: /root/.ssh/id_ed25519
-			  uid: "0"
-			  gid: "0"
-			  mode: 0600
+  csci2020u:
+      build: .
+      secrets:
+        - source: host_ssh_key
+          target: /root/.ssh/id_ed25519
+          uid: "0"
+          gid: "0"
+          mode: 0600
 secrets:
-	host_ssh_key:
-		file: ~/.ssh/id_ed25519
+  host_ssh_key:
+    file: ~/.ssh/id_ed25519
 #+end_src
