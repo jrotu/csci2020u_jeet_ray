@@ -18,6 +18,15 @@
 // ...
 // or
 
+buildscript {
+    repositories {
+        flatDirdirs: 'proguard6.2.2/lib'
+    }
+    dependencies {
+        classpath: 'proguard'
+    }
+}
+
 plugins {
     id 'java'
     
@@ -29,7 +38,7 @@ plugins {
 
 /* Main Class Definition */
 
-mainClassName = 'csci2020u.lab02.Simple'
+mainClassName = 'csci2020u.lab03.CSVDemo'
 
 /* Repositories Block */
 // Reference: https://docs.gradle.org/current/userguide/declaring_dependencies.html
@@ -43,6 +52,12 @@ repositories {
     mavenCentral()
 
     // ...
+}
+
+task (minify, dependsOn: 'jar', type: proguard.gradle.ProGuardTask) {
+    configuration 'proguard.cfg'
+    injars 'build/libs/app.jar'
+    outjars 'build/libs/app.min.jar'
 }
 
 /* Dependencies Block */
@@ -59,5 +74,13 @@ dependencies {
 
 application {
     // Define the main class for the application.
-    mainClass = 'csci2020u.lab02.Simple'
+    mainClass = 'csci2020u.lab03.CSVDemo'
 }
+
+tasks.named('jar') {
+    manifest {
+        attributes('Implementation-Title': "CSVDemo",
+                   'Implementation-Version': "1.0.0.0")
+    }
+}
+

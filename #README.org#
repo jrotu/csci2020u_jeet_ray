@@ -1,0 +1,127 @@
+#+property: header-args -n -r -l "[{(<%s>)}]" :tangle-mode (identity 0444) :noweb yes
+* CSCI2020U
+
+These are the labs for the =Software Systems Developement and Integration= course I'm taking at the =Ontario Tech University=.
+
+** Docker
+
+This is a literate program of the =Dockerfile= and =docker-compose.yml= I'm using.
+
+*** =Dockerfile=
+
+I chose to go with a =multistage= build of [[https://hub.docker.com/_/alpine][Dockerhub's alpine]] images combined with [[https://hub.docker.com/r/nixos/nix/][nixos/nix]], which is based off the former.
+
+#+name: emacsConfigs
+#+begin_src text
+shadowrylander/.home/.emacs-configs
+#+end_src
+
+#+name: doomd
+#+begin_src text
+<<emacsConfigs>>/.doom.d
+#+end_src
+
+**** Alpine
+
+I'm going to use this for preprocessing, such as downloading and unpacking tarballs, easily narrow-cloning git repos, etc. ; as this is a previous stage, I won't care much about the addition of unnecessary layers.
+
+#+name: pre
+#+begin_src dockerfile
+FROM alpine AS pre
+RUN apk add git sd
+RUN git clone https://github.com/shadowrylander/shadowrylander.git
+RUN git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d
+RUN sd ../packages packages <<emacsConfigs>>/config.el
+RUN sd ../global/config.el global/config.el <<doomd>>/config.el
+RUN sd ../global/init.el global/init.el <<doomd>>/init.el
+#+end_src
+
+**** Nix Base
+
+This is the primary image; the working directory is the =root= account's home directory, and I'm copying over my personal [[https://github.com/hlissner/doom-emacs][doom emacs]] configs:
+
+#+name: nix
+#+begin_src dockerfile
+FROM nixos/nix
+WORKDIR /root
+COPY --from=pre <<doomd>> .doom.d
+COPY --from=pre <<emacsConfigs>>/global global
+COPY --from=pre .emacs.d .emacs.d
+#+end_src
+
+**** Shell
+
+I enjoy using the python-based, bashwards-compatible [[https://xon.sh/][xonsh]] shell; this is the =CMD= of the =Dockerfile= (I'm not using =ENTRYPOINT= as =CMD= is overridable from the commandline, and that could prove useful if necessary).
+
+#+name: shell
+#+begin_src dockerfile
+CMD [ "/usr/bin/env", "xonsh" ]
+#+end_src
+
+**** Nix Packages
+
+These are the packages I will be using for the course; they are split into different layers simply to take advantage of caching, where the layers shared between docker images are not rebuilt unless necessary.
+
+#+name: packages
+#+begin_src dockerfile
+ARG n="nixpkgs"
+ARG install="nix-env -iA ${n}"
+RUN nix-channel --update
+RUN $install.xonsh
+RUN $install.rsync
+RUN $install.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
+RUN $install.emacs-nox && .emacs.d/bin/doom sync
+RUN $install.tmux $n.byobu
+RUN $install.gradle
+#+end_src
+
+**** Git Clone This Repo
+
+Basically, I want to work in this container only; this includes manipulating the git repo here as well, such that the only time I'd need to pull the origin to the cloned repo on the host machine is when I update the =Dockerfile= and =docker-compose.yml=.
+
+The following is adapted from [[https://stackoverflow.com/a/39278224][How to prevent Dockerfile caching git clone]], by [[https://stackoverflow.com/users/243335/anq][anq]]:
+
+#+name: git
+#+begin_src dockerfile
+ARG user="jrotu"
+ARG repo="csci2020u"
+ARG frepo="${repo}_jeet_ray"
+ARG branch="master"
+
+ADD https://api.github.com/repos/$user/$frepo/git/refs/heads/$branch version.json
+RUN git clone -b $branch git@github.com:$user/$frepo.git $repo
+#+end_src
+
+**** Putting It All Together
+
+#+begin_src dockerfile :tangle Dockerfile
+<<pre>>
+
+<<nix>>
+
+<<shell>>
+
+<<packages>>
+
+<<git>>
+#+end_src
+
+*** =docker-compose.yml=
+
+The compose file is simple enough, with the secrets bit from [[https://forums.docker.com/t/unable-set-docker-secret-file-ownership-permissions/31336][Unable set docker secret file ownership, permissions]]; note, however, that setting the =uid= and =gid= triggers a warning about the functionality only being available in swarm mode.
+
+#+begin_src yaml :tangle docker-compose.yml
+version: "3.9"
+services:
+  csci2020u:
+      build: .
+      secrets:
+        - source: host_ssh_key
+          target: /root/.ssh/id_ed25519
+          uid: "0"
+          gid: "0"
+          mode: 0600
+secrets:
+  host_ssh_key:
+    file: ~/.ssh/id_ed25519
+#+end_src

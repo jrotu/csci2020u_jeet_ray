@@ -1,15 +1,18 @@
 FROM alpine AS pre
-RUN apk add git
+RUN apk add git sd
 RUN git clone https://github.com/shadowrylander/shadowrylander.git
+RUN git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d
+RUN sd ../packages packages shadowrylander/.home/.emacs-configs/config.el
+RUN sd ../global/config.el global/config.el shadowrylander/.home/.emacs-configs/.doom.d/config.el
+RUN sd ../global/init.el global/init.el shadowrylander/.home/.emacs-configs/.doom.d/init.el
 
 FROM nixos/nix
 WORKDIR /root
 COPY --from=pre shadowrylander/.home/.emacs-configs/.doom.d .doom.d
+COPY --from=pre shadowrylander/.home/.emacs-configs/global global
+COPY --from=pre .emacs.d .emacs.d
 
 CMD [ "/usr/bin/env", "xonsh" ]
-
-# Unnecessary when using the nixos/nix image, but isn't much of a hinderance
-ENV PATH="/root/.nix-profile/bin/:${PATH}"
 
 ARG n="nixpkgs"
 ARG install="nix-env -iA ${n}"
@@ -17,10 +20,9 @@ RUN nix-channel --update
 RUN $install.xonsh
 RUN $install.rsync
 RUN $install.git && git config --global user.name "Jeet Ray" && git config --global user.email "jeet.ray@ontariotechu.net"
-COPY --from=curl shadowrylander.tar.gz
-RUN $install.emacs-nox && git clone --depth 1 https://github.com/hlissner/doom-emacs .emacs.d && tar -xf shadowrylander.tar.gz && ln -sf /root/shadowrylander/.home/.emacs-configs/.doom.d /root/.doom.d && .emacs.d/bin/doom sync
+RUN $install.emacs-nox && .emacs.d/bin/doom sync
 RUN $install.tmux $n.byobu
-RUN $install.gradle $n.tar && tar -xf proguard.tar.gz
+RUN $install.gradle
 
 ARG user="jrotu"
 ARG repo="csci2020u"
